@@ -1,6 +1,6 @@
 <template>
   <h2 class="font-bold text-2xl mb-2 pb-4 border-black">
-    Comments ({{ comments.length }})
+    Comments ({{ is_comment_loading ? "Loading" : comments.length }})
   </h2>
   <template v-for="comment in comments">
     <CommentCard
@@ -53,7 +53,7 @@
           >
         </label>
         <button
-          class="mr-2 px-2 py-1 rounded-lg bg-black text-white font-bold flex-none relative right-0"
+          class="mr-2 px-2 py-1 rounded-lg bg-black text-white font-bold flex-none relative right-0 disabled:bg-gray-500"
           @click="
             on_submit_comment(
               comment_name,
@@ -62,6 +62,7 @@
               comment_agreement
             )
           "
+          :disabled="is_comment_submitting"
         >
           Submit
         </button>
@@ -83,6 +84,8 @@ const comment_content = ref<string>("");
 const comment_name = ref<string>("");
 const comment_email = ref<string>("");
 const comment_agreement = ref<boolean>(false);
+const is_comment_loading = ref<boolean>(true);
+const is_comment_submitting = ref<boolean>(false);
 
 function load_comment_data() {
   if (!comments_location) {
@@ -112,6 +115,7 @@ function load_comment_data() {
             };
             comments.value.push(to_append);
           }
+          is_comment_loading.value = false;
         });
       } else {
         // Got abnormal response code.
@@ -137,6 +141,24 @@ function load_comment_data() {
 
 load_comment_data();
 
+const COMMENT_AGREEMENT_ALERT = `Error: Please Agree to the Commenting Agreements
+
+To ensure a respectful and constructive environment, \
+we require all users to agree to our commenting agreements before posting. \
+Please check the checkbox to indicate your agreement. \
+Thank you for helping us maintain a positive community!
+`;
+
+const COMMENT_TOO_LONG_ALERT = `Error: Comment Too Long.
+
+We're glad you have a lot to say! However, your comment is a bit too lengthy. \
+Long comments can be disruptive to other users' attention and affect the styling of our website. \
+Please shorten your comment or consider posting it in several sections. \
+Thank you for your understanding and cooperation!
+
+(Maximum length of a single comment is limited to 4096 characters.)
+`;
+
 function on_submit_comment(
   name: string,
   content: string,
@@ -147,9 +169,14 @@ function on_submit_comment(
     return;
   }
   if (!user_agree) {
-    console.log("TODO: hint user to agree with commenting agreements");
+    window.alert(COMMENT_AGREEMENT_ALERT);
     return;
   }
+  if (content.length > 4096) {
+    window.alert(COMMENT_TOO_LONG_ALERT);
+    return;
+  }
+  is_comment_submitting.value = true;
   try {
     console.log("Submitting comment to API server");
     fetch(comments_location, {
@@ -177,6 +204,8 @@ function on_submit_comment(
           response.status
         );
       }
+      // Normal termination of network request
+      is_comment_submitting.value = false;
     });
   } catch (error) {
     if (error instanceof SyntaxError) {
@@ -189,6 +218,8 @@ function on_submit_comment(
       // Other errors, probably user canceled request or network change.
       console.log("Unexpected error", error);
     }
+    // Abnormal termination of network request
+    is_comment_submitting.value = false;
   }
 }
 </script>
